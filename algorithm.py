@@ -11,14 +11,14 @@ class Trader:
         return 15
     
     def root_update_data(self, state : TradingState, historical_data : list):
-        #calculates mid price and updates historical data list 
+        # calculates mid price and updates historical data list 
 
-        #initialize variables
-        order_depths = state.order_depths
+        # initialize variables
+        order_depths = state.order_depths['INTARIAN_PEPPER_ROOT']
         buy_orders = order_depths.buy_orders
         sell_orders = order_depths.sell_orders
 
-        #define best_bid and best_ask if not empty, else use last mid price
+        # define best_bid and best_ask if not empty, else use last mid price
         if buy_orders:
             best_bid = max(buy_orders)
         else:
@@ -28,7 +28,7 @@ class Trader:
         else:
             best_ask = 0
 
-        #calculate mid price and append to list 
+        # calculate mid price and append to list 
         if best_bid != 0 and best_ask != 0:
             mid_price = (best_bid + best_ask) / 2
         else:
@@ -40,14 +40,14 @@ class Trader:
             historical_data.append(mid_price)
         
 
-    def root_fair_price(self, state : TradingState, historical_data : list, historical_fair_price : list) -> int:
-        #calculates fair_price and updates historical fair_price
+    def root_fair_price(self, state : TradingState, historical_data : list, historical_fair_price : list) -> float:
+        # calculates fair_price and updates historical fair_price
 
-        #calculate slope given historical data
+        # calculate slope given historical data
         x = np.arrange(len(historical_data))
         slope, intercept = np.polyfit(x, historical_data, 1)
 
-        #calculate historical_fair_price and append
+        # calculate historical_fair_price and append
         if len(historical_fair_price) == 0:
             historical_fair_price.append(historical_data[-1])
         else:
@@ -55,8 +55,26 @@ class Trader:
         
         return slope
     
-    def take_book(self, state : TradingState):
-        #buy/sell the entire side of a book 
+    def take_book(self, state : TradingState, action : int, product : string, max_position : int, max_half_edge : float, historical_fair_price : list, orders : dict):
+        # buy/sell the entire side of a book 
+        
+        # initialize variables
+        order_depth = state.order_depths[product]
+        buy_orders = order_depth.buy_orders 
+        sell_orders = order_depth.sell_orders 
+
+
+        # take orders  (we want to buy, so take the sell book at a slight premium so +)
+        # want to buy, so take the sell book
+        if action == 1:
+            clearing_price = historical_fair_price[-1] + max_half_edge
+            for value in sell_orders:
+                if value <= clearing_price:
+                    
+        # want to sell, so take the buy book
+        else:
+
+
         pass
 
     def intarian_root_take(self, state: TradingState) -> int:
