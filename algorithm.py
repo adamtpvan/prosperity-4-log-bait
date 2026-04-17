@@ -2,6 +2,7 @@ from datamodel import OrderDepth, UserId, TradingState, Order
 from typing import List
 import string
 import numpy as np
+import jsonpickle
 
 #note t = 0 to t = 1,000,000, ticks are 100 a piece
 
@@ -55,44 +56,74 @@ class Trader:
         
         return slope
     
-    def take_book(self, state : TradingState, action : int, product : string, max_position : int, max_half_edge : float, historical_fair_price : list, orders : dict):
+    def take_book(self, state : TradingState, action : int, product : string, max_position : int, max_half_edge : float, historical_fair_price : list, orders : list[Order]):
         # buy/sell the entire side of a book 
         
         # initialize variables
         order_depth = state.order_depths[product]
         buy_orders = order_depth.buy_orders 
         sell_orders = order_depth.sell_orders 
+        position = state.position[product]
 
 
-        # take orders  (we want to buy, so take the sell book at a slight premium so +)
+        # take orders
         # want to buy, so take the sell book
         if action == 1:
+            # we want to buy, so take the sell book at a slight premium so +
             clearing_price = historical_fair_price[-1] + max_half_edge
             for value in sell_orders:
                 if value <= clearing_price:
-                    
+                    orders.append(Order(product, value, min(-sell_orders[value], max_position - position)))
         # want to sell, so take the buy book
         else:
+            # we want to sell, so take the buy book at a slight premium so -
+            clearing_price = historical_fair_price[-1] - max_half_edge
+            for value in buy_orders:
+                if value >= sell_orders:
+                    orders.append(Order(product, value, max(-buy_orders[value] , max_position - position)))
 
-
-        pass
-
-    def intarian_root_take(self, state: TradingState) -> int:
+    def intarian_root_take(self, state: TradingState, historical_fair_price : list, orders : list[Order]) -> int:
         #check around calculated fair price for favorable trades
-        pass
 
-    def market_make(self, state : TradingState, mid_value : int, half_edge : int, orders : int):
-        #market make
-        pass
+        #initialize variables
+        order_depth = state.order_depths['INTARIAN_PEPPER_ROOT']
+        buy_orders = order_depth.buy_orders 
+        sell_orders = order_depth.sell_orders 
+        position = state.position['INTARIAN_PEPPER_ROOT']
+
+        #fair price
+        fair_price = historical_fair_price[-1]
+
+        for value in sell_orders:
+            if value < fair_price:
+                orders.append(Order("INTARIAN_PEPPER_ROOT", value, min(-sell_orders[value], 80 - position)))
+        for value in buy_orders:
+            if value > fair_price:
+                    orders.append(Order("INTARIAN_PEPPER_ROOT", value, max(-buy_orders[value] , 80 - position)))
     
     def run(self, state: TradingState) -> dict: #dict should be product with value list of orders
-        """Only method required. It takes all buy and sell orders for all
-        symbols as an input, and outputs a list of orders to be sent."""
+        # initialize variables
+        # traderData is a list of historical_data, historical_fair_price
+        historical_data = {"INTARIAN_PEPPER_ROOT" : [], "ASH_COATED_OSMIUM" : []}
+        historical_fair_price = {"INTARIAN_PEPPER_ROOT" : [], "ASH_COATED_OSMIUM" : []}
+        hold_indicator = 1
+        if state.traderData:
+            historical_data, historical_fair_price, hold_indicator = jsonpickle.decode(state.traderData)
+        time = state.timestamp
+        positions = state.position
+        root_orders = []
+        osmium_orders = []
+
+        if time < 5000:
+            self.root_update_data(state, historical_data['INTARIAN_PEPPER_ROOT'])
+        elif hold_indicator != -1:
+            #check if need to hold
+            pass
 
         # Orders to be placed on exchange matching engine
         result = {"INTARIAN_PEPPER_ROOT" : [], "ASH_COATED_OSMIUM" : []}
 
 
-        traderData = ""  # No state needed - we check position directly
+        traderData = jsonpickle.encode([historical_data, historical_fair_price, hold_indicator])
         conversions = 0
         return result, conversions, traderData
