@@ -114,15 +114,23 @@ class Trader:
         root_orders = []
         osmium_orders = []
 
+        #allow time for slope
         if time < 5000:
             self.root_update_data(state, historical_data['INTARIAN_PEPPER_ROOT'])
+        #if we havent bought yet, buy now
         elif hold_indicator != -1:
-            #check if need to hold
-            pass
+            #slope going up, buy
+            if self.root_fair_price(state, historical_data['INTARIAN_PEPPER_ROOT'], historical_fair_price['INTARIAN_PEPPER_ROOT']) > 0:
+                self.take_book(state, 1, 'INTARIAN_PEPPER_ROOT', 75, 999999999, historical_fair_price['INTARIAN_PEPPER_ROOT'], root_orders)
+            #slope going down, sell
+            else:
+                self.take_book(state, -1, 'INTARIAN_PEPPER_ROOT', 75, 999999999, historical_fair_price['INTARIAN_PEPPER_ROOT'], root_orders)
+            #this wil change the indicator on the tick after we get a full position but should be okay
+            if abs(positions['INTARIAN_PEPPER_ROOT']) == 75:
+               hold_indicator = -1
 
         # Orders to be placed on exchange matching engine
-        result = {"INTARIAN_PEPPER_ROOT" : [], "ASH_COATED_OSMIUM" : []}
-
+        result = {"INTARIAN_PEPPER_ROOT" : root_orders, "ASH_COATED_OSMIUM" : osmium_orders}
 
         traderData = jsonpickle.encode([historical_data, historical_fair_price, hold_indicator])
         conversions = 0
