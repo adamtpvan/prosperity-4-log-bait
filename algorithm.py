@@ -33,6 +33,7 @@ class Trader:
         else:
             historical_data.append(mid_price)
         
+
     def root_fair_price(self, state : TradingState, historical_data : list, historical_fair_price : float) -> tuple:
         x = np.arange(len(historical_data))
         slope, intercept = np.polyfit(x, historical_data, 1)
@@ -60,6 +61,22 @@ class Trader:
             for value in buy_orders:
                 if value >= clearing_price:
                     orders.append(Order(product, value, max(-buy_orders[value], max_position - position)))
+
+    def intarian_root_take(self, state: TradingState, historical_fair_price : float, orders : list[Order]) -> int:
+        #take favorable trades around fair price
+        order_depth = state.order_depths['INTARIAN_PEPPER_ROOT']
+        buy_orders = order_depth.buy_orders 
+        sell_orders = order_depth.sell_orders 
+        position = state.position.get('INTARIAN_PEPPER_ROOT', 0)
+
+        fair_price = historical_fair_price
+
+        for value in sell_orders:
+            if value < fair_price:
+                orders.append(Order("INTARIAN_PEPPER_ROOT", value, min(-sell_orders[value], 80 - position)))
+        for value in buy_orders:
+            if value > fair_price:
+                    orders.append(Order("INTARIAN_PEPPER_ROOT", value, max(-buy_orders[value], 80 - position)))
     
     def run(self, state: TradingState) -> dict:
         historical_data = {"INTARIAN_PEPPER_ROOT" : [], "ASH_COATED_OSMIUM" : []}
@@ -72,8 +89,10 @@ class Trader:
         root_orders = []
         osmium_orders = []
 
+        #wait for slope
         if time < 5000:
             self.root_update_data(state, historical_data['INTARIAN_PEPPER_ROOT'])
+        #hold
         elif hold_indicator != -1:
             slope, historical_fair_price['INTARIAN_PEPPER_ROOT'] = self.root_fair_price(
                 state,
