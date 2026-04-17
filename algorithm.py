@@ -66,7 +66,7 @@ class Trader:
         positions = state.position
         root_orders = []
         osmium_orders = []
-        root_max_hold = 75
+        root_max_hold = 80
 
         mid_price = self.get_mid_price(state, 'INTARIAN_PEPPER_ROOT')
 
