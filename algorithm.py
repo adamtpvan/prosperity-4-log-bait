@@ -59,14 +59,16 @@ class Trader:
 
         # initialize stats and state, overwritten by traderData if it exists
         hold_indicator = 1
-        root_intercept = self.get_mid_price(state, 'INTARIAN_PEPPER_ROOT')
+        root_intercept = 0
 
         if state.traderData:
             decoded_data = jsonpickle.decode(state.traderData)
             if isinstance(decoded_data, (list, tuple)) and len(decoded_data) == 2:
                 hold_indicator, root_intercept = decoded_data
 
-        
+        if root_intercept==0:
+            root_intercept = round(self.get_mid_price(state, 'INTARIAN_PEPPER_ROOT')/1000)*1000
+
         time = state.timestamp
         positions = state.position
         root_orders = []
@@ -86,16 +88,22 @@ class Trader:
             if root_intercept is not None:
                 root_fair_price = root_intercept + root_slope * time
 
-            if hold_indicator != -1 and root_fair_price is not None:
-
-                if root_mid_price is not None and root_mid_price < root_fair_price:
+            if time < 1000000-25:
+                if hold_indicator != -1 and root_fair_price is not None:
                     self.take_book(state, 1, 'INTARIAN_PEPPER_ROOT', root_max_hold, 5, root_fair_price, root_orders)
 
-                if root_mid_price is not None and root_mid_price > root_fair_price:
-                    self.take_book(state, 2, 'INTARIAN_PEPPER_ROOT', root_max_hold, 5, root_fair_price, root_orders)
+                    if abs(positions.get('INTARIAN_PEPPER_ROOT', 0)) == root_max_hold:
+                        hold_indicator = -1
+                
+                else:
+                    if root_mid_price is not None and root_mid_price > root_fair_price:
+                        self.take_book(state, 2, 'INTARIAN_PEPPER_ROOT', root_max_hold, 5, root_fair_price, root_orders)
 
-                if abs(positions.get('INTARIAN_PEPPER_ROOT', 0)) == root_max_hold:
-                    hold_indicator = -1
+                    hold_indicator=1
+
+            else: 
+                self.take_book(state, 2, 'INTARIAN_PEPPER_ROOT', root_max_hold, 5, 0, root_orders)
+
 
         result = {"INTARIAN_PEPPER_ROOT": root_orders, "ASH_COATED_OSMIUM": osmium_orders}
         traderData = jsonpickle.encode([hold_indicator,root_intercept])
