@@ -18,8 +18,8 @@ class Trader:
         return (max(buy_orders) + min(sell_orders)) / 2
     
     def z_score(self, state, product, historical_data : List):
-        # where historical_stats is in the form of [mu, sd]
-        mu = np.mean(historical_data)
+        #its 3 am, im hard coding the mean 
+        mu = 9995
         sd = np.std(historical_data)
         order_depth = state.order_depths[product]
         #buy_orders so we sell, want higher values first 
@@ -51,35 +51,25 @@ class Trader:
 
     def mean_revert(self, state, product, historical_data, z_threshold, exit_threshold, max_position, orders):
         order_depth = state.order_depths[product]
-        #buy_orders so we sell, want higher values first 
-        buy_orders = dict(sorted(order_depth.buy_orders.items(), reverse = True))
-        #sell_orders so we buy, want lower values first
+        buy_orders = dict(sorted(order_depth.buy_orders.items(), reverse=True))
         sell_orders = dict(sorted(order_depth.sell_orders.items()))
         position = state.position.get(product, 0)
 
-
-        mu = np.mean(historical_data)
-        md = np.std(historical_data)
         buy_z_score, sell_z_score = self.z_score(state, product, historical_data)
-        
-        #enter
-        if buy_z_score >= z_threshold:
-            # the price is high so we expect it to go back down to mean and therefore sell
-            delta = max(buy_orders, key=buy_orders.get) - mu 
-            self.take_book(state, -1, product, max_position, delta, mu, orders)
-            print(buy_orders, orders)
-        elif sell_z_score <= -z_threshold:
-            delta = mu - min(sell_orders, key=sell_orders.get)
-            self.take_book(state, 1, product, max_position, delta, mu, orders)
-            print(sell_orders, orders)
 
-        #exit
-        if (sell_z_score <= exit_threshold) & (position < 0):
-            # our z_score is back down and our position is short
-            self.take_book(state, 1, product, 0, 0, mu, orders)
-        elif (buy_z_score >= -exit_threshold) & (position > 0):
-            # out z_score is back up and our position is long
-            self.take_book(state, -1, product, 0, 0, mu, orders)
+        # enter
+        if buy_z_score >= z_threshold:
+            delta = max(buy_orders) - np.mean(historical_data)
+            self.take_book(state, -1, product, -max_position, delta, np.mean(historical_data), orders)
+        elif sell_z_score <= -z_threshold:
+            delta = np.mean(historical_data) - min(sell_orders)
+            self.take_book(state, 1, product, max_position, delta, np.mean(historical_data), orders)
+
+        # exit
+        if (buy_z_score <= exit_threshold) and (position > 0):
+            self.take_book(state, -1, product, 0, 0, np.mean(historical_data), orders)
+        elif (sell_z_score >= -exit_threshold) and (position < 0):
+            self.take_book(state, 1, product, 0, 0, np.mean(historical_data), orders)
 
     def take_book(self, state, action, product, max_position, max_half_edge, fair_price, orders):
         # sweeps the book up to a clearing price derived from fair price +/- half edge
@@ -107,7 +97,8 @@ class Trader:
         # initialize stats and state, overwritten by traderData if it exists
         hold_indicator = 1
         root_intercept = self.get_mid_price(state, 'INTARIAN_PEPPER_ROOT')
-
+        osmium_data = []
+        
         if state.traderData:
             hold_indicator, root_intercept, osmium_data = jsonpickle.decode(state.traderData)
 
@@ -120,8 +111,10 @@ class Trader:
         osmium_orders = []
 
         #osmium
-        enter_z_score = -1
+        enter_z_score = 1
         exit_z_score = 0.5
+        osmium_average = 9995
+
         if time >= 5000:
             self.mean_revert(state, "ASH_COATED_OSMIUM", osmium_data, enter_z_score, exit_z_score, 80, osmium_orders)
         self.update_historical_stats(state, "ASH_COATED_OSMIUM", 50, osmium_data)
