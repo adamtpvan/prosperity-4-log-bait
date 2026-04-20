@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(C:/Python314/python.exe -m prosperity4bt --help)",
+      "Bash(git pull:*)",
+      "Bash(git push:*)"
+    ]
+  }
+}
