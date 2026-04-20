@@ -16,6 +16,26 @@ class Trader:
             return None
 
         return (max(buy_orders) + min(sell_orders)) / 2
+    
+    def z_score(self, state, product, historical_stats : List[float, float, List]):
+        # where historical_stats is in the form of [mu, sd]
+        mu = historical_stats[0]
+        sd = historical_stats[1]
+
+        mid_price = self.get_mid_price(state, product)
+
+        z_score = (mid_price - mu)/sd
+
+        return z_score
+
+    def update_historical_stats(self, state, product, window_length : int, historical_stats: List[float, float, List]) -> List:
+        order_depths = state.order_depths[product]
+        
+        pass
+
+
+    def mean_revert(self, state, product):
+        pass 
 
     def take_book(self, state, action, product, max_position, max_half_edge, fair_price, orders):
         # sweeps the book up to a clearing price derived from fair price +/- half edge
