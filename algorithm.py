@@ -6,6 +6,10 @@ import numpy as np
 
 class Trader:
 
+    def bid(self):
+        #seeing about a ~4000 xirec profit from osmium, so perhaps around ~1000 with added liquidity?
+        return 700
+
     def get_mid_price(self, state, product):
         # returns mid price only if both sides exist, otherwise None
         order_depths = state.order_depths[product]
@@ -111,7 +115,7 @@ class Trader:
         osmium_orders = []
 
         #osmium
-        enter_z_score = 1
+        enter_z_score = 0.5
         exit_z_score = 0.5
         osmium_average = 9995
 
