@@ -21,56 +21,95 @@ class Trader:
         # where historical_stats is in the form of [mu, sd]
         mu = np.mean(historical_data)
         sd = np.std(historical_data)
-
-        mid_price = self.get_mid_price(state, product)
-
-        z_score = (mid_price - mu)/sd
-
-        return z_score
-
-    def update_historical_stats(self, state, product, window_length : int, historical_data: List[float, float, List]) -> List:
-        order_depths = state.order_depths[product]
-        mid_price = self.get_mid_price(state, product)
-
-        if len(historical_data) <= window_length:
-            historical_data.append(mid_price)
+        order_depth = state.order_depths[product]
+        #buy_orders so we sell, want higher values first 
+        buy_orders = dict(sorted(order_depth.buy_orders.items(), reverse = True))
+        #sell_orders so we buy, want lower values first
+        sell_orders = dict(sorted(order_depth.sell_orders.items()))
+        
+        if len(buy_orders) != 0:
+            best_bid = max(buy_orders, key=buy_orders.get)
+            buy_z_score = (best_bid - mu)/sd
         else:
-            pass
+            buy_z_score = -999
+        if len(sell_orders) != 0:
+            best_ask = min(sell_orders, key=sell_orders.get)
+            sell_z_score = (best_ask - mu)/sd
+        else:
+            sell_z_score = 999
+
+        return buy_z_score, sell_z_score
+
+    def update_historical_stats(self, state, product, window_length : int, historical_data: List) -> List:
+        mid_price = self.get_mid_price(state, product)
+        if mid_price:
+            if len(historical_data) <= window_length:
+                historical_data.append(mid_price)
+            else:
+                historical_data[:-1] = historical_data[1:]
+                historical_data[-1] = mid_price
+
+    def mean_revert(self, state, product, historical_data, z_threshold, exit_threshold, max_position, orders):
+        order_depth = state.order_depths[product]
+        #buy_orders so we sell, want higher values first 
+        buy_orders = dict(sorted(order_depth.buy_orders.items(), reverse = True))
+        #sell_orders so we buy, want lower values first
+        sell_orders = dict(sorted(order_depth.sell_orders.items()))
+        position = state.position.get(product, 0)
 
 
+        mu = np.mean(historical_data)
+        md = np.std(historical_data)
+        buy_z_score, sell_z_score = self.z_score(state, product, historical_data)
+        
+        #enter
+        if buy_z_score >= z_threshold:
+            # the price is high so we expect it to go back down to mean and therefore sell
+            delta = max(buy_orders, key=buy_orders.get) - mu 
+            self.take_book(state, -1, product, max_position, delta, mu, orders)
+            print(buy_orders, orders)
+        elif sell_z_score <= -z_threshold:
+            delta = mu - min(sell_orders, key=sell_orders.get)
+            self.take_book(state, 1, product, max_position, delta, mu, orders)
+            print(sell_orders, orders)
 
-    def mean_revert(self, state, product):
-        pass 
+        #exit
+        if (sell_z_score <= exit_threshold) & (position < 0):
+            # our z_score is back down and our position is short
+            self.take_book(state, 1, product, 0, 0, mu, orders)
+        elif (buy_z_score >= -exit_threshold) & (position > 0):
+            # out z_score is back up and our position is long
+            self.take_book(state, -1, product, 0, 0, mu, orders)
 
     def take_book(self, state, action, product, max_position, max_half_edge, fair_price, orders):
         # sweeps the book up to a clearing price derived from fair price +/- half edge
         order_depth = state.order_depths[product]
-        buy_orders = order_depth.buy_orders
-        sell_orders = order_depth.sell_orders
+        #buy_orders so we sell, want higher values first 
+        buy_orders = dict(sorted(order_depth.buy_orders.items(), reverse = True))
+        #sell_orders so we buy, want lower values first
+        sell_orders = dict(sorted(order_depth.sell_orders.items()))
         position = state.position.get(product, 0)
 
         if action == 1:
+            #buy
             clearing_price = fair_price + max_half_edge
             for value in sell_orders:
                 if value <= clearing_price:
                     orders.append(Order(product, value, min(-sell_orders[value], max_position - position)))
         else:
+            #sell
             clearing_price = fair_price - max_half_edge
             for value in buy_orders:
                 if value >= clearing_price:
                     orders.append(Order(product, value, max(-buy_orders[value], max_position - position)))
 
     def run(self, state: TradingState) -> dict:
-        #slope for intarian pepper root 0.001
-
         # initialize stats and state, overwritten by traderData if it exists
         hold_indicator = 1
-        root_intercept = 0
+        root_intercept = self.get_mid_price(state, 'INTARIAN_PEPPER_ROOT')
 
         if state.traderData:
-            decoded_data = jsonpickle.decode(state.traderData)
-            if isinstance(decoded_data, (list, tuple)) and len(decoded_data) == 2:
-                hold_indicator, root_intercept = decoded_data
+            hold_indicator, root_intercept, osmium_data = jsonpickle.decode(state.traderData)
 
         if root_intercept==0:
             root_intercept = round(self.get_mid_price(state, 'INTARIAN_PEPPER_ROOT')/1000)*1000
@@ -80,7 +119,14 @@ class Trader:
         root_orders = []
         osmium_orders = []
 
+        #osmium
+        enter_z_score = -1
+        exit_z_score = 0.5
+        if time >= 5000:
+            self.mean_revert(state, "ASH_COATED_OSMIUM", osmium_data, enter_z_score, exit_z_score, 80, osmium_orders)
+        self.update_historical_stats(state, "ASH_COATED_OSMIUM", 50, osmium_data)
 
+        #roots
         root_max_hold = 80
         root_slope = 0.001
 
@@ -112,6 +158,6 @@ class Trader:
 
 
         result = {"INTARIAN_PEPPER_ROOT": root_orders, "ASH_COATED_OSMIUM": osmium_orders}
-        traderData = jsonpickle.encode([hold_indicator,root_intercept])
+        traderData = jsonpickle.encode([hold_indicator,root_intercept, osmium_data])
         conversions = 0
         return result, conversions, traderData
