@@ -17,10 +17,10 @@ class Trader:
 
         return (max(buy_orders) + min(sell_orders)) / 2
     
-    def z_score(self, state, product, historical_stats : List[float, float, List]):
+    def z_score(self, state, product, historical_data : List):
         # where historical_stats is in the form of [mu, sd]
-        mu = historical_stats[0]
-        sd = historical_stats[1]
+        mu = np.mean(historical_data)
+        sd = np.std(historical_data)
 
         mid_price = self.get_mid_price(state, product)
 
@@ -28,9 +28,15 @@ class Trader:
 
         return z_score
 
-    def update_historical_stats(self, state, product, window_length : int, historical_stats: List[float, float, List]) -> List:
+    def update_historical_stats(self, state, product, window_length : int, historical_data: List[float, float, List]) -> List:
         order_depths = state.order_depths[product]
-        pass
+        mid_price = self.get_mid_price(state, product)
+
+        if len(historical_data) <= window_length:
+            historical_data.append(mid_price)
+        else:
+            pass
+
 
 
     def mean_revert(self, state, product):
